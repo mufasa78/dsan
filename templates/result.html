@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FER Result - Facial Expression Recognition</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-smile-beam me-2"></i>
+                Facial Expression Recognition
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Recognition Results</h5>
+                        <a href="/" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Back to Upload
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Input Image</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <img id="result-image" class="img-fluid rounded" style="max-height: 300px;" src="{{ image_data }}" alt="Input Image">
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Prediction</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <h3 class="text-center">
+                                            <i class="fas fa-face-{{ emotion_icon }} me-2"></i>
+                                            {{ prediction }}
+                                        </h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Emotion Probabilities</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <img src="data:image/png;base64,{{ plot_data }}" class="img-fluid" alt="Probability Chart">
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Attention Weights</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <img src="data:image/png;base64,{{ attention_data }}" class="img-fluid" alt="Attention Weights">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer mt-5 py-3 bg-dark">
+        <div class="container text-center">
+            <span class="text-muted">
+                Dual Stream Attention Network (DSAN) for Facial Expression Recognition
+            </span>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
