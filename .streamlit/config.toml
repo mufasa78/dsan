@@ -1,4 +1,36 @@
+[theme]
+# Primary accent color for interactive elements
+primaryColor = "#4CAF50"
+
+# Background color for the main content area
+backgroundColor = "#0E1117"
+
+# Background color for sidebar and most interactive widgets
+secondaryBackgroundColor = "#1E1E1E"
+
+# Color used for almost all text
+textColor = "#FFFFFF"
+
+# Font family for all text in the app, except code blocks
+# Accepted values (serif | sans serif | monospace)
+font = "sans serif"
+
 [server]
+# If false, will attempt to open a browser window on start
 headless = true
-address = "0.0.0.0"
-port = 5000
+
+# Enables cors for all origins
+enableCORS = false
+
+# Enables XSRF protection
+enableXsrfProtection = false
+
+# If true, sends uncaught app exceptions to Sentry
+reportAppException = false
+
+[browser]
+# Internet address where users should point their browsers in order to connect to the app
+serverAddress = "0.0.0.0"
+
+# Port where users should point their browsers in order to connect to the app
+serverPort = 8501
