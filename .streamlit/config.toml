@@ -28,9 +28,12 @@ enableXsrfProtection = false
 # If true, sends uncaught app exceptions to Sentry
 reportAppException = false
 
+address = "127.0.0.1"
+port = 8501
+
 [browser]
 # Internet address where users should point their browsers in order to connect to the app
-serverAddress = "0.0.0.0"
+serverAddress = "127.0.0.1"
 
 # Port where users should point their browsers in order to connect to the app
 serverPort = 8501

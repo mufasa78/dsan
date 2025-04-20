@@ -55,120 +55,12 @@ def main():
             @demo_app.route('/')
             def index():
                 return render_template('index.html', demo_mode=True)
-            
+                
             @demo_app.route('/predict', methods=['POST'])
             def predict():
-                import io
-                import base64
-                import matplotlib.pyplot as plt
-                import numpy as np
+                return jsonify({'error': 'Demo mode - prediction not available'})
                 
-                # Demo emotions
-                emotions = {
-                    0: 'Neutral',
-                    1: 'Happiness', 
-                    2: 'Sadness',
-                    3: 'Surprise',
-                    4: 'Fear',
-                    5: 'Disgust',
-                    6: 'Anger',
-                }
-                
-                # Generate random probabilities
-                np.random.seed(42)  # For reproducibility
-                probs = np.random.rand(7)
-                probs = probs / probs.sum()  # Normalize to sum to 1
-                
-                pred_idx = np.argmax(probs)
-                pred_label = emotions[pred_idx]
-                
-                emotion_probs = {emotions[i]: float(probs[i]) for i in range(7)}
-                
-                # Generate visualization
-                fig = plt.figure(figsize=(10, 5))
-                
-                # Bar chart of emotion probabilities
-                emotion_names = [emotions[i] for i in range(7)]
-                
-                # Sort by probability
-                indices = np.argsort(probs)[::-1]
-                sorted_emotions = [emotion_names[i] for i in indices]
-                sorted_probs = probs[indices]
-                
-                bars = plt.barh(range(7), sorted_probs, align='center')
-                plt.yticks(range(7), sorted_emotions)
-                plt.xlabel('Probability')
-                plt.title('Emotion Probabilities (Demo Mode)')
-                
-                # Highlight the predicted class
-                for i, idx in enumerate(indices):
-                    if idx == pred_idx:
-                        bars[i].set_color('red')
-                
-                plt.tight_layout()
-                
-                # Save plot to bytes
-                buf = io.BytesIO()
-                plt.savefig(buf, format='png')
-                plt.close(fig)
-                buf.seek(0)
-                
-                # Convert plot to base64 string
-                img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-                
-                # Create a more informative visualization
-                fig = plt.figure(figsize=(10, 4))
-                feature_count = 20
-                
-                # Generate some realistic looking attention weights with a few dominant features
-                np.random.seed(42)  # For reproducibility
-                base_attention = np.random.rand(feature_count) * 0.3  # Base lower values
-                
-                # Make a few features more important
-                important_indices = [3, 7, 12, 15]
-                for idx in important_indices:
-                    base_attention[idx] = 0.5 + np.random.rand() * 0.5  # Higher values
-                
-                # Normalize to sum to 1
-                demo_attention = base_attention / base_attention.sum()
-                
-                # Sort indices by importance
-                sorted_indices = np.argsort(demo_attention)[::-1]  # Descending
-                sorted_attention = demo_attention[sorted_indices]
-                
-                # Show only top 10 features
-                top_n = 10
-                bars = plt.bar(range(top_n), sorted_attention[:top_n], align='center')
-                
-                # Different colors for different importance levels
-                cmap = plt.cm.get_cmap('viridis')
-                for i, bar in enumerate(bars):
-                    bar.set_color(cmap(i/top_n))
-                
-                plt.xticks(range(top_n), range(1, top_n+1))
-                plt.xlabel('Top Feature Indices')
-                plt.ylabel('Attention Weight')
-                plt.title('Feature Importance (Demonstration)')
-                plt.tight_layout()
-                
-                # Save attention plot to bytes
-                att_buf = io.BytesIO()
-                plt.savefig(att_buf, format='png')
-                plt.close(fig)
-                att_buf.seek(0)
-                
-                # Convert attention plot to base64 string
-                att_img_str = base64.b64encode(att_buf.getvalue()).decode('utf-8')
-                
-                return jsonify({
-                    'predicted_label': pred_label,
-                    'probabilities': emotion_probs,
-                    'plot': img_str,
-                    'attention_plot': att_img_str,
-                    'demo_mode': True
-                })
-            
-            demo_app.run(host='0.0.0.0', port=5000)
+            demo_app.run(host='127.0.0.1', port=5000)
             return
         
         try:
