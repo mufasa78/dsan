@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 import logging
 
+from streamlit_app import generate_demo_prediction
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -24,41 +26,50 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "facial_expression_recognition")
 
 # Global variables
+FER_MODEL_PATH = 'checkpoints/fer_model_best.pth'
+RAFDB_MODEL_PATH = 'checkpoints/rafdb_model_best.pth'
+MODEL_AVAILABLE = os.path.exists(FER_MODEL_PATH) or os.path.exists(RAFDB_MODEL_PATH)
 model = None
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 num_classes = 7  # Default to 7 classes
-checkpoint_path = 'checkpoints/best_model_resnet18_7classes.pth'
 
-def load_model(checkpoint_path, backbone='resnet18', num_classes=7):
+def load_model(checkpoint_path='', backbone='resnet18', num_classes=7):
     """
-    Load DSAN model from checkpoint
-    Args:
-        checkpoint_path: path to checkpoint
-        backbone: backbone network
-        num_classes: number of emotion classes
+    Load DSAN models from checkpoints
     Returns:
-        loaded model
+        list of tuples (model_name, model) or None if no models available
     """
     if not MODEL_AVAILABLE:
-        logging.warning("Model modules not available, skipping model loading")
+        logging.warning("No models available, skipping model loading")
         return None
         
-    model = DSAN(
-        num_classes=num_classes,
-        backbone=backbone,
-        pretrained=False
-    )
+    models = []
     
-    if os.path.exists(checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=device)
-        model.load_state_dict(checkpoint['model'])
-        logging.info(f"Loaded checkpoint from {checkpoint_path}")
-    else:
-        logging.warning(f"Checkpoint {checkpoint_path} not found. Using untrained model.")
-    
-    model = model.to(device)
-    model.eval()
-    return model
+    try:
+        # Try loading FER model
+        if os.path.exists(FER_MODEL_PATH):
+            fer_model = DSAN(num_classes=num_classes, backbone=backbone, pretrained=False)
+            checkpoint = torch.load(FER_MODEL_PATH, map_location=device)
+            fer_model.load_state_dict(checkpoint['model'])
+            fer_model = fer_model.to(device)
+            fer_model.eval()
+            models.append(('FER', fer_model))
+            logging.info("FER model loaded successfully")
+            
+        # Try loading RAF-DB model
+        if os.path.exists(RAFDB_MODEL_PATH):
+            rafdb_model = DSAN(num_classes=num_classes, backbone=backbone, pretrained=False)
+            checkpoint = torch.load(RAFDB_MODEL_PATH, map_location=device)
+            rafdb_model.load_state_dict(checkpoint['model'])
+            rafdb_model = rafdb_model.to(device)
+            rafdb_model.eval()
+            models.append(('RAF-DB', rafdb_model))
+            logging.info("RAF-DB model loaded successfully")
+            
+        return models if models else None
+    except Exception as e:
+        logging.error(f"Error loading models: {e}")
+        return None
 
 def predict_expression(image):
     """
@@ -98,8 +109,8 @@ def predict_expression(image):
         
         bars = plt.barh(range(num_classes), sorted_probs, align='center')
         plt.yticks(range(num_classes), sorted_emotions)
-        plt.xlabel('Probability')
-        plt.title('Emotion Probabilities (Demo Mode)')
+        plt.xlabel('概率')
+        plt.title('表情概率分布（演示模式）')
         
         # Highlight the predicted class
         for i, idx in enumerate(indices):
@@ -121,9 +132,9 @@ def predict_expression(image):
         fig = plt.figure(figsize=(10, 4))
         demo_attention = np.random.rand(10)
         plt.bar(range(len(demo_attention)), demo_attention, align='center')
-        plt.xlabel('Feature Index')
-        plt.ylabel('Attention Weight')
-        plt.title('Demo Attention Weights (Not Real Data)')
+        plt.xlabel('特征索引')
+        plt.ylabel('注意力权重')
+        plt.title('注意力权重分析（演示数据）')
         plt.tight_layout()
         
         # Save attention plot to bytes
@@ -145,7 +156,7 @@ def predict_expression(image):
     
     # Ensure model is loaded
     if model is None:
-        model = load_model(checkpoint_path, num_classes=num_classes)
+        model = load_model(num_classes=num_classes)
         
     if model is None:
         return {
@@ -161,135 +172,57 @@ def predict_expression(image):
     
     image_tensor = transform(image).unsqueeze(0).to(device)
     
-    # Predict
+    all_probabilities = []
+    all_attention_weights = []
+    
+    # Get predictions from each model
     with torch.no_grad():
-        outputs, attention_weights = model(image_tensor)
-        probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
-        _, pred_idx = torch.max(outputs, 1)
-        pred_idx = pred_idx.item()
+        for model_name, model_instance in model:
+            outputs, attention = model_instance(image_tensor)
+            probabilities = torch.nn.functional.softmax(outputs, dim=1)
+            all_probabilities.append(probabilities[0].cpu().numpy())
+            all_attention_weights.append(attention.cpu().numpy())
     
-    # Get emotion labels
-    emotions = {k: v for k, v in FER_EMOTIONS.items() if k < num_classes}
-    pred_label = emotions[pred_idx]
+    # Average predictions from all models
+    avg_probabilities = np.mean(all_probabilities, axis=0)
+    avg_attention_weights = np.mean(all_attention_weights, axis=0)
     
-    # Get all probabilities
-    probs = probabilities.cpu().numpy()
-    emotion_probs = {emotions[i]: float(probs[i]) for i in range(num_classes)}
+    # Get predicted label
+    pred_idx = np.argmax(avg_probabilities)
+    pred_label = FER_EMOTIONS[pred_idx]
     
-    # Generate visualization
-    fig = plt.figure(figsize=(10, 5))
+    # Create probability dictionary
+    emotion_probs = {FER_EMOTIONS[i]: float(avg_probabilities[i]) 
+                    for i in range(len(FER_EMOTIONS))}
     
-    # Bar chart of emotion probabilities
-    emotion_names = [emotions[i] for i in range(num_classes)]
+    # Prepare visualization
+    plt.figure(figsize=(10, 4))
+    plt.subplot(1, 2, 1)
+    # Plot emotion probabilities
+    plt.bar(emotion_probs.keys(), emotion_probs.values())
+    plt.xticks(rotation=45)
+    plt.title('表情概率分布')
     
-    # Sort by probability
-    indices = np.argsort(probs)[::-1]
-    sorted_emotions = [emotion_names[i] for i in indices]
-    sorted_probs = probs[indices]
-    
-    bars = plt.barh(range(num_classes), sorted_probs, align='center')
-    plt.yticks(range(num_classes), sorted_emotions)
-    plt.xlabel('Probability')
-    plt.title('Emotion Probabilities')
-    
-    # Highlight the predicted class
-    for i, idx in enumerate(indices):
-        if idx == pred_idx:
-            bars[i].set_color('red')
-    
+    plt.subplot(1, 2, 2)
+    # Plot attention weights
+    plt.bar(range(10), avg_attention_weights.flatten()[:10])
+    plt.title('前10个注意力权重')
+    plt.xlabel('特征索引')
+    plt.ylabel('权重值')
     plt.tight_layout()
     
     # Save plot to bytes
     buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    plt.close(fig)
+    plt.savefig(buf, format='png', bbox_inches='tight')
     buf.seek(0)
-    
-    # Convert plot to base64 string
-    img_str = base64.b64encode(buf.getvalue()).decode('utf-8')
-    
-    # Get attention weights for visualization
-    try:
-        # Check if attention_weights is a tensor with shape
-        if hasattr(attention_weights, 'shape') and len(attention_weights.shape) > 0:
-            attention = attention_weights.cpu().numpy()[0]
-            
-            # Check if attention is an array we can get length from
-            if hasattr(attention, '__len__'):
-                num_to_show = max(int(len(attention) * 0.1), 1)
-                top_indices = np.argsort(attention)[-num_to_show:]
-                top_attention = attention[top_indices]
-                
-                # Create another visualization for attention weights
-                fig = plt.figure(figsize=(10, 4))
-                bars = plt.bar(range(num_to_show), top_attention, align='center')
-                
-                # Add color gradient to bars
-                cmap = plt.cm.get_cmap('viridis')
-                for i, bar in enumerate(bars):
-                    bar.set_color(cmap(i/num_to_show))
-                
-                plt.xlabel('Most Important Feature Indices')
-                plt.ylabel('Attention Weight')
-                plt.title('Top Feature Importance (Sparse Attention)')
-                plt.tight_layout()
-            else:
-                # If attention is a scalar, create a simple demo visualization
-                raise ValueError("Attention is not an array")
-        else:
-            raise ValueError("Attention weights don't have proper shape")
-    except Exception as e:
-        logging.warning(f"Error processing attention weights: {e}. Creating demo visualization.")
-        
-        # Create a more informative visualization 
-        fig = plt.figure(figsize=(10, 4))
-        feature_count = 20
-        
-        # Generate some realistic looking attention weights with a few dominant features
-        np.random.seed(42)  # For reproducibility
-        base_attention = np.random.rand(feature_count) * 0.3  # Base lower values
-        
-        # Make a few features more important
-        important_indices = [3, 7, 12, 15]
-        for idx in important_indices:
-            base_attention[idx] = 0.5 + np.random.rand() * 0.5  # Higher values
-        
-        # Normalize to sum to 1
-        demo_attention = base_attention / base_attention.sum()
-        
-        # Sort indices by importance
-        sorted_indices = np.argsort(demo_attention)[::-1]  # Descending
-        sorted_attention = demo_attention[sorted_indices]
-        
-        # Show only top 10 features
-        top_n = 10
-        bars = plt.bar(range(top_n), sorted_attention[:top_n], align='center')
-        
-        # Different colors for different importance levels
-        cmap = plt.cm.get_cmap('viridis')
-        for i, bar in enumerate(bars):
-            bar.set_color(cmap(i/top_n))
-        
-        plt.xticks(range(top_n), range(1, top_n+1))
-        plt.xlabel('Top Feature Indices')
-        plt.ylabel('Attention Weight')
-        plt.title('Feature Importance (Demonstration)')
-        plt.tight_layout()
-    
-    # Save attention plot to bytes
-    att_buf = io.BytesIO()
-    plt.savefig(att_buf, format='png')
-    plt.close(fig)
-    att_buf.seek(0)
-    
-    # Convert attention plot to base64 string
-    att_img_str = base64.b64encode(att_buf.getvalue()).decode('utf-8')
+    plot_url = base64.b64encode(buf.getvalue()).decode('utf8')
     
     return {
         'predicted_label': pred_label,
         'probabilities': emotion_probs,
-        'plot': img_str,
-        'attention_plot': att_img_str
+        'attention_weights': avg_attention_weights.flatten()[:10].tolist(),
+        'plot': plot_url,
+        'demo_mode': False
     }
 
 @app.route('/')
@@ -299,22 +232,76 @@ def index():
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part'})
+        return jsonify({'error': 'No file uploaded'})
     
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No selected file'})
+        return jsonify({'error': 'No file selected'})
     
     try:
-        # Read image
-        img = Image.open(file.stream).convert('RGB')
+        # Read and preprocess image
+        image_bytes = file.read()
+        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        input_tensor = preprocess_image(image)
         
-        # Predict expression
-        result = predict_expression(img)
+        if model is None:
+            return jsonify(generate_demo_prediction())
+            
+        all_probabilities = []
+        all_attention_weights = []
         
-        return jsonify(result)
+        # Get predictions from each model
+        with torch.no_grad():
+            for model_name, model_instance in model:
+                outputs, attention = model_instance(input_tensor)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                all_probabilities.append(probabilities[0].cpu().numpy())
+                all_attention_weights.append(attention.cpu().numpy())
+        
+        # Average predictions from all models
+        avg_probabilities = np.mean(all_probabilities, axis=0)
+        avg_attention_weights = np.mean(all_attention_weights, axis=0)
+        
+        # Get predicted label
+        pred_idx = np.argmax(avg_probabilities)
+        pred_label = FER_EMOTIONS[pred_idx]
+        
+        # Create probability dictionary
+        emotion_probs = {FER_EMOTIONS[i]: float(avg_probabilities[i]) 
+                        for i in range(len(FER_EMOTIONS))}
+        
+        # Prepare visualization
+        plt.figure(figsize=(10, 4))
+        plt.subplot(1, 2, 1)
+        # Plot emotion probabilities
+        plt.bar(emotion_probs.keys(), emotion_probs.values())
+        plt.xticks(rotation=45)
+        plt.title('表情概率分布')
+        
+        plt.subplot(1, 2, 2)
+        # Plot attention weights
+        plt.bar(range(10), avg_attention_weights.flatten()[:10])
+        plt.title('前10个注意力权重')
+        plt.xlabel('特征索引')
+        plt.ylabel('权重值')
+        plt.tight_layout()
+        
+        # Save plot to bytes
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight')
+        buf.seek(0)
+        plot_url = base64.b64encode(buf.getvalue()).decode('utf8')
+        
+        return jsonify({
+            'predicted_label': pred_label,
+            'probabilities': emotion_probs,
+            'attention_weights': avg_attention_weights.flatten()[:10].tolist(),
+            'plot': plot_url,
+            'demo_mode': False
+        })
+        
     except Exception as e:
-        logging.exception("Error during prediction")
+        logging.error(f"Error during prediction: {e}")
         return jsonify({'error': str(e)})
 
 @app.route('/demo')
@@ -325,7 +312,7 @@ if __name__ == '__main__':
     # Load model at startup only if available
     if MODEL_AVAILABLE:
         try:
-            model = load_model(checkpoint_path, num_classes=num_classes)
+            model = load_model(num_classes=num_classes)
         except Exception as e:
             logging.exception(f"Error loading model: {e}")
     else:

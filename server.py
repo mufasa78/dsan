@@ -108,6 +108,6 @@ if __name__ == "__main__":
     streamlit_thread.daemon = True
     streamlit_thread.start()
     
-    # Start the Flask server
+    # Start the Flask server with specific address
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="127.0.0.1", port=port, debug=True)

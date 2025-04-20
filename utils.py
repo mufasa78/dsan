@@ -10,14 +10,14 @@ logger = logging.getLogger(__name__)
 
 # Define constants - These are accessible even if torch is not available
 FER_EMOTIONS = {
-    0: 'Neutral',
-    1: 'Happiness', 
-    2: 'Sadness',
-    3: 'Surprise',
-    4: 'Fear',
-    5: 'Disgust',
-    6: 'Anger',
-    7: 'Contempt'  # Only in some datasets like AffectNet-8
+    0: '平静',
+    1: '快乐', 
+    2: '伤心',
+    3: '惊讶',
+    4: '害怕',
+    5: '厌恶',
+    6: '愤怒',
+    7: '轻蔑'  # Only in some datasets like AffectNet-8
 }
 
 # Try to import torch-related modules
@@ -65,19 +65,7 @@ def get_transforms(phase):
         ])
 
 class FERDataset(Dataset):
-    """
-    Dataset class for Facial Expression Recognition datasets
-    Compatible with RAF-DB, FERPlus, and AffectNet
-    """
     def __init__(self, data_dir, label_file, phase='train', num_classes=7, transform=None):
-        """
-        Args:
-            data_dir (str): directory with images
-            label_file (str): file with image names and labels
-            phase (str): 'train' or 'val'/'test'
-            num_classes (int): number of emotion classes (7 or 8)
-            transform: transformation to apply to images
-        """
         self.data_dir = data_dir
         self.phase = phase
         self.num_classes = num_classes
@@ -87,19 +75,34 @@ class FERDataset(Dataset):
         self.image_paths = []
         self.labels = []
         
+        import csv
         with open(label_file, 'r') as f:
-            for line in f:
-                parts = line.strip().split()
-                if len(parts) >= 2:
-                    image_name = parts[0]
-                    label = int(parts[1])
+            reader = csv.DictReader(f)
+            for row in reader:
+                if not row['Image name']:  # Skip empty rows
+                    continue
                     
-                    # Skip labels that are outside the number of classes
-                    if label < num_classes:
-                        image_path = os.path.join(data_dir, image_name)
-                        if os.path.exists(image_path):
-                            self.image_paths.append(image_path)
-                            self.labels.append(label)
+                # Get the emotion with highest score
+                emotions = {
+                    'neutral': int(row['neutral']),
+                    'happiness': int(row['happiness']),
+                    'surprise': int(row['surprise']),
+                    'sadness': int(row['sadness']),
+                    'anger': int(row['anger']),
+                    'disgust': int(row['disgust']),
+                    'fear': int(row['fear'])
+                }
+                
+                # Get label index of emotion with max score
+                label = max(emotions.items(), key=lambda x: x[1])[0]
+                label_idx = list(emotions.keys()).index(label)
+                
+                # Skip if label index is outside num_classes
+                if label_idx < num_classes:
+                    image_path = os.path.join(data_dir, self.phase, row['Image name'])
+                    if os.path.exists(image_path):
+                        self.image_paths.append(image_path)
+                        self.labels.append(label_idx)
     
     def __len__(self):
         return len(self.image_paths)

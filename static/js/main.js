@@ -17,14 +17,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Emotion icons mapping
     const emotionIcons = {
-        'Neutral': 'meh',
-        'Happiness': 'smile-beam',
-        'Sadness': 'sad-tear',
-        'Surprise': 'surprise',
-        'Fear': 'grimace',
-        'Disgust': 'dizzy',
-        'Anger': 'angry',
-        'Contempt': 'meh-rolling-eyes'
+        '平静': 'meh',
+        '快乐': 'smile-beam',
+        '伤心': 'sad-tear',
+        '惊讶': 'surprise',
+        '害怕': 'grimace',
+        '厌恶': 'dizzy',
+        '愤怒': 'angry',
+        '轻蔑': 'meh-rolling-eyes'
     };
     
     // Show or hide the loading indicator
@@ -74,8 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const file = imageInput.files[0];
         if (!file) {
-            // Show more user-friendly error with Bootstrap toast or alert
-            const errorMsg = 'Please select an image file before submitting.';
+            const errorMsg = '请在提交前选择一张图片。';
             
             // Create a bootstrap alert
             const alertDiv = document.createElement('div');
@@ -118,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Server error: ' + response.statusText);
+                throw new Error('服务器错误：' + response.statusText);
             }
             return response.json();
         })
@@ -146,8 +145,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update the prediction result with emotion and confidence
             const iconClass = emotionIcons[data.predicted_label] || 'question';
             const emotionProb = data.probabilities[data.predicted_label] * 100;
-            const confidenceLevel = emotionProb > 70 ? 'High' : 
-                                   emotionProb > 40 ? 'Medium' : 'Low';
+            const confidenceLevel = emotionProb > 70 ? '高' : 
+                                   emotionProb > 40 ? '中' : '低';
             
             const confidenceBadgeClass = emotionProb > 70 ? 'bg-success' : 
                                         emotionProb > 40 ? 'bg-warning' : 'bg-danger';
@@ -157,7 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-face-${iconClass} fa-3x mb-3"></i>
                     <h3>${data.predicted_label}</h3>
                     <div class="badge ${confidenceBadgeClass} p-2 mt-2">
-                        Confidence: ${confidenceLevel} (${emotionProb.toFixed(1)}%)
+                         置信度：${confidenceLevel} (${emotionProb.toFixed(1)}%)
                     </div>
                 </div>
             `;
@@ -182,9 +181,9 @@ document.addEventListener('DOMContentLoaded', function() {
             predictionResult.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i> 
-                    Error: ${error.message}
+                    错误：${error.message}
                 </div>
-                <p class="text-center mt-3">Please try again with a different image.</p>
+                <p class="text-center mt-3">请尝试使用其他图片。</p>
             `;
         });
     });
